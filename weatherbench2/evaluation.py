@@ -122,14 +122,11 @@ def open_source_files(
         chunks='auto' if (use_dask or pressure_level_suffixes) else None,
     )
   else:
-    obs = xr.open_zarr(
-        obs_path,
-        chunks=chunking,
-    )
-    forecast = xr.open_zarr(
-        forecast_path,
-        chunks=chunking,
-    )
+    obs = xr.open_zarr(obs_path, chunks={})
+    forecast = xr.open_zarr(forecast_path, chunks={})
+    # rechunk for processing
+    obs = obs.chunk(chunking)
+    forecast = forecast.chunk(chunking)
 
   if pressure_level_suffixes:
     forecast = _decode_pressure_level_suffixes(forecast)
