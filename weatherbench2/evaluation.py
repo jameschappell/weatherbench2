@@ -96,6 +96,7 @@ def open_source_files(
     use_dask: bool = False,
     rename_variables: Optional[dict[str, str]] = None,
     pressure_level_suffixes: bool = False,
+    chunking: Optional[dict[str, int]] = None,
 ) -> tuple[xr.Dataset, xr.Dataset]:
   """Open forecast and ground obs Zarr files and standardize them.
 
@@ -113,12 +114,22 @@ def open_source_files(
   Returns:
     (forecast, obs): Tuple containing forecast and ground-truth datasets.
   """
-  obs = xr.open_zarr(obs_path, chunks='auto' if (use_dask or by_init) else None)
-  forecast = xr.open_zarr(
-      forecast_path,
-      # Use dask to decode pressure levels since xr's expand_dims is not lazy
-      chunks='auto' if (use_dask or pressure_level_suffixes) else None,
-  )
+  if chunking is None:
+    obs = xr.open_zarr(obs_path, chunks='auto' if (use_dask or by_init) else None)
+    forecast = xr.open_zarr(
+        forecast_path,
+        # Use dask to decode pressure levels since xr's expand_dims is not lazy
+        chunks='auto' if (use_dask or pressure_level_suffixes) else None,
+    )
+  else:
+    obs = xr.open_zarr(
+        obs_path,
+        chunks=chunking,
+    )
+    forecast = xr.open_zarr(
+        forecast_path,
+        chunks=chunking,
+    )
 
   if pressure_level_suffixes:
     forecast = _decode_pressure_level_suffixes(forecast)
@@ -297,6 +308,7 @@ def open_forecast_and_truth_datasets(
     data_config: config.Data,
     eval_config: config.Eval,
     use_dask: bool = False,
+    chunking: Optional[dict[str, int]] = None,
 ) -> tuple[xr.Dataset, xr.Dataset, Union[xr.Dataset, None]]:
   """Open datasets and select desired slices.
 
@@ -319,6 +331,7 @@ def open_forecast_and_truth_datasets(
       use_dask=use_dask,
       rename_variables=data_config.rename_variables,
       pressure_level_suffixes=data_config.pressure_level_suffixes,
+      chunking=chunking,
   )
 
   obs_all_times = _impose_data_selection(
@@ -443,10 +456,11 @@ def _evaluate_all_metrics(
     eval_config: config.Eval,
     data_config: config.Data,
     skipna: bool,
+    chunking: Optional[dict[str, int]] = None,
 ) -> None:
   """Evaluate a set of eval metrics in memory."""
   forecast, truth, climatology = open_forecast_and_truth_datasets(
-      data_config, eval_config, use_dask=True
+      data_config, eval_config, use_dask=True, chunking=chunking
   )
 
   if eval_config.evaluate_climatology:
@@ -487,6 +501,7 @@ def evaluate_in_memory(
     data_config: config.Data,
     eval_configs: dict[str, config.Eval],
     skipna: bool = False,
+    chunking: dict[str, int] = None,
 ) -> None:
   """Run evaluation in memory.
 
@@ -514,7 +529,7 @@ def evaluate_in_memory(
       evaluation.
   """
   for eval_name, eval_config in eval_configs.items():
-    _evaluate_all_metrics(eval_name, eval_config, data_config, skipna=skipna)
+    _evaluate_all_metrics(eval_name, eval_config, data_config, skipna=skipna, chunking=chunking)
 
 
 @dataclasses.dataclass
