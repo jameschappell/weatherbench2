@@ -606,6 +606,10 @@ class ZonalEnergySpectrum(DerivedVariable):
         input_core_dims=[['longitude']],
         output_core_dims=[['longitude']],
         exclude_dims={'longitude'},
+        dask='parallelized',
+        dask_gufunc_kwargs={
+          'output_sizes': {'longitude': dataset.sizes['longitude'] // 2 + 1},
+        }
     ).rename_dims({'longitude': 'zonal_wavenumber'})[self.variable_name]
     spectrum = spectrum.assign_coords(
         zonal_wavenumber=('zonal_wavenumber', spectrum.zonal_wavenumber.data)
